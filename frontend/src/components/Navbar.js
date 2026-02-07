@@ -29,6 +29,7 @@ import {
   FaTrash,
   FaTimes,
   FaSearch,
+  FaRobot,
 } from 'react-icons/fa';
 import { useThemeMode } from '../context/ThemeContext';
 import { useFavorites } from '../context/FavoritesContext';
@@ -125,6 +126,19 @@ const Navbar = ({ onNavigate, currentView }) => {
               >
                 Search
               </Button>
+              <Button
+                startIcon={<FaRobot />}
+                onClick={() => onNavigate('tripPlanner')}
+                sx={{
+                  color: 'text.primary',
+                  fontWeight: currentView === 'tripPlanner' ? 700 : 400,
+                  background: currentView === 'tripPlanner'
+                    ? 'linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.12))'
+                    : 'none',
+                }}
+              >
+                AI Planner
+              </Button>
 
               <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
 
@@ -190,6 +204,10 @@ const Navbar = ({ onNavigate, currentView }) => {
             <ListItem button onClick={() => { onNavigate('search'); setMobileMenu(false); }}>
               <ListItemIcon><FaSearch /></ListItemIcon>
               <ListItemText primary="Search" />
+            </ListItem>
+            <ListItem button onClick={() => { onNavigate('tripPlanner'); setMobileMenu(false); }}>
+              <ListItemIcon><FaRobot /></ListItemIcon>
+              <ListItemText primary="AI Trip Planner" />
             </ListItem>
             <ListItem button onClick={() => { setHistoryDrawer(true); setMobileMenu(false); }}>
               <ListItemIcon>

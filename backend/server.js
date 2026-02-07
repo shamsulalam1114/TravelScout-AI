@@ -6,6 +6,7 @@ const rateLimit = require("express-rate-limit");
 const { getAllTransportation } = require("./scrapers/transportation");
 const { scrapeHotels } = require("./scrapers/hotelScrapper");
 const { scrapeTouristPlaces } = require("./scrapers/tourist-places");
+const { chatWithGemini, generateItinerary, getRecommendations } = require("./services/gemini");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -217,6 +218,86 @@ app.post("/api/search", async (req, res) => {
   }
 });
 
+// ── AI ENDPOINTS ──────────────────────────────────────────────
+
+// AI Chat endpoint
+app.post("/api/ai/chat", async (req, res) => {
+  const { message, history } = req.body;
+
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "Message is required" });
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({
+      error: "AI features are not configured. Please set GEMINI_API_KEY.",
+    });
+  }
+
+  log("info", `AI Chat: "${message.substring(0, 50)}..."`);
+
+  try {
+    const result = await chatWithGemini(message, history || []);
+    res.json(result);
+  } catch (error) {
+    log("error", "AI chat error:", error.message);
+    res.status(500).json({ error: "AI service error", details: error.message });
+  }
+});
+
+// AI Itinerary Generator endpoint
+app.post("/api/ai/itinerary", async (req, res) => {
+  const { destination, from, days, budget, interests, travelers } = req.body;
+
+  if (!destination) {
+    return res.status(400).json({ error: "Destination is required" });
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({
+      error: "AI features are not configured. Please set GEMINI_API_KEY.",
+    });
+  }
+
+  log("info", `AI Itinerary: ${days || 3} days in ${destination}`);
+
+  try {
+    const result = await generateItinerary({
+      destination,
+      from: from || "",
+      days: days || 3,
+      budget: budget || "moderate",
+      interests: interests || "",
+      travelers: travelers || 2,
+    });
+    res.json(result);
+  } catch (error) {
+    log("error", "AI itinerary error:", error.message);
+    res.status(500).json({ error: "AI service error", details: error.message });
+  }
+});
+
+// AI Destination Recommendations endpoint
+app.post("/api/ai/recommendations", async (req, res) => {
+  const { preferences } = req.body;
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({
+      error: "AI features are not configured. Please set GEMINI_API_KEY.",
+    });
+  }
+
+  log("info", "AI Recommendations requested");
+
+  try {
+    const result = await getRecommendations(preferences || {});
+    res.json(result);
+  } catch (error) {
+    log("error", "AI recommendations error:", error.message);
+    res.status(500).json({ error: "AI service error", details: error.message });
+  }
+});
+
 // Health check with scraper status
 app.get("/api/health", (req, res) => {
   res.json({
@@ -224,6 +305,10 @@ app.get("/api/health", (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     cacheSize: cache.data.size,
+    ai: {
+      enabled: !!process.env.GEMINI_API_KEY,
+      model: "gemini-pro",
+    },
     scrapers: {
       hotels: { sources: ["Booking.com", "Agoda", "MakeMyTrip"], status: "active" },
       transportation: { sources: ["Shohoz", "Bangladesh Railway", "Google Flights"], status: "active" },

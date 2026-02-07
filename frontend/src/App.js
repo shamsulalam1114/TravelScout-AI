@@ -6,6 +6,8 @@ import LandingPage from './components/LandingPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ChatBot from './components/ChatBot';
+import TripPlanner from './components/TripPlanner';
 import { motion } from 'framer-motion';
 import { searchTravel, cancelSearch } from './utils/api';
 import { useSearchHistory } from './context/SearchHistoryContext';
@@ -16,7 +18,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(0);
-  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'search'
+  const [currentView, setCurrentView] = useState('landing'); // 'landing' | 'search' | 'tripPlanner'
   const [prefillData, setPrefillData] = useState(null);
   const lastSearchRef = useRef(null);
 
@@ -74,6 +76,10 @@ function App() {
         // Pre-fill from search history
         setPrefillData(data);
       }
+    } else if (view === 'tripPlanner') {
+      setCurrentView('tripPlanner');
+      setResults(null);
+      setError(null);
     }
   }, []);
 
@@ -95,6 +101,8 @@ function App() {
         <Box sx={{ flex: 1, pt: '64px' }}>
           {currentView === 'landing' ? (
             <LandingPage onGetStarted={() => setCurrentView('search')} />
+          ) : currentView === 'tripPlanner' ? (
+            <TripPlanner onNavigate={handleNavigate} />
           ) : (
             <Container maxWidth="lg">
               <motion.div
@@ -128,6 +136,7 @@ function App() {
         </Box>
 
         <Footer />
+        <ChatBot />
       </Box>
     </ErrorBoundary>
   );

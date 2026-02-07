@@ -80,6 +80,47 @@ export const checkHealth = async () => {
   }
 };
 
+// ── AI Chat ─────────────────────────────────────────────────
+export const sendChatMessage = async (message, history = []) => {
+  try {
+    const { data } = await api.post("/ai/chat", { message, history });
+    return data;
+  } catch (error) {
+    if (error.response?.status === 503) {
+      throw new Error("AI features are not configured. Please add your Gemini API key.");
+    }
+    throw new Error(error.response?.data?.error || "Failed to get AI response");
+  }
+};
+
+// ── AI Itinerary ────────────────────────────────────────────
+export const generateItinerary = async ({ destination, from, days, budget, interests, travelers }) => {
+  try {
+    const { data } = await api.post("/ai/itinerary", {
+      destination, from, days, budget, interests, travelers,
+    });
+    return data;
+  } catch (error) {
+    if (error.response?.status === 503) {
+      throw new Error("AI features are not configured. Please add your Gemini API key.");
+    }
+    throw new Error(error.response?.data?.error || "Failed to generate itinerary");
+  }
+};
+
+// ── AI Recommendations ──────────────────────────────────────
+export const getAIRecommendations = async (preferences = {}) => {
+  try {
+    const { data } = await api.post("/ai/recommendations", { preferences });
+    return data;
+  } catch (error) {
+    if (error.response?.status === 503) {
+      throw new Error("AI features are not configured. Please add your Gemini API key.");
+    }
+    throw new Error(error.response?.data?.error || "Failed to get recommendations");
+  }
+};
+
 // ── Formatting helpers ──────────────────────────────────────
 export const formatPrice = (price) => {
   const num = Number(price);
