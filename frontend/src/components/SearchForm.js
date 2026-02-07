@@ -1,18 +1,67 @@
 import React, { useState } from 'react';
-import { Box, TextField, Button, Paper, Stack, Typography } from '@mui/material';
+import { Box, TextField, Button, Paper, Stack, Typography, Alert } from '@mui/material';
 import ReactDatePicker from 'react-datepicker';
 import { motion } from 'framer-motion';
 import "react-datepicker/dist/react-datepicker.css";
-import { FaPlane, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaPlane, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaDoorOpen } from 'react-icons/fa';
 
 const SearchForm = ({ onSearch, loading }) => {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [date, setDate] = useState(new Date());
+  const [checkIn, setCheckIn] = useState(new Date());
+  const [checkOut, setCheckOut] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  });
+  const [guests, setGuests] = useState(2);
+  const [rooms, setRooms] = useState(1);
+  const [validationError, setValidationError] = useState('');
+
+  const validate = () => {
+    if (!from.trim()) {
+      setValidationError('Please enter origin location.');
+      return false;
+    }
+    if (!to.trim()) {
+      setValidationError('Please enter destination location.');
+      return false;
+    }
+    if (!checkIn) {
+      setValidationError('Please select a check-in date.');
+      return false;
+    }
+    if (!checkOut) {
+      setValidationError('Please select a check-out date.');
+      return false;
+    }
+    if (checkOut <= checkIn) {
+      setValidationError('Check-out date must be after check-in date.');
+      return false;
+    }
+    if (guests < 1 || guests > 20) {
+      setValidationError('Guests must be between 1 and 20.');
+      return false;
+    }
+    if (rooms < 1 || rooms > 10) {
+      setValidationError('Rooms must be between 1 and 10.');
+      return false;
+    }
+    setValidationError('');
+    return true;
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSearch({ from, to, date: date.toISOString().split('T')[0] });
+    if (!validate()) return;
+    onSearch({
+      from,
+      to,
+      checkIn: checkIn.toISOString().split('T')[0],
+      checkOut: checkOut.toISOString().split('T')[0],
+      guests,
+      rooms,
+    });
   };
 
   return (
@@ -35,6 +84,12 @@ const SearchForm = ({ onSearch, loading }) => {
             <Typography variant="h5" fontWeight="bold" color="primary">
               Find Your Perfect Trip
             </Typography>
+
+            {validationError && (
+              <Alert severity="error" onClose={() => setValidationError('')}>
+                {validationError}
+              </Alert>
+            )}
             
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Box sx={{ flex: 1, minWidth: '200px' }}>
@@ -62,19 +117,28 @@ const SearchForm = ({ onSearch, loading }) => {
                   }}
                 />
               </Box>
-              
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Box sx={{ flex: 1, minWidth: '200px' }}>
                 <div className="custom-datepicker-wrapper">
                   <ReactDatePicker
-                    selected={date}
-                    onChange={(date) => setDate(date)}
+                    selected={checkIn}
+                    onChange={(date) => {
+                      setCheckIn(date);
+                      // Auto-adjust check-out if it's before new check-in
+                      if (checkOut && date >= checkOut) {
+                        const nextDay = new Date(date);
+                        nextDay.setDate(nextDay.getDate() + 1);
+                        setCheckOut(nextDay);
+                      }
+                    }}
                     dateFormat="yyyy-MM-dd"
                     minDate={new Date()}
                     customInput={
                       <TextField
                         fullWidth
-                        label="Date"
-                        value={date ? date.toLocaleDateString() : ''}
+                        label="Check-in"
                         InputProps={{
                           startAdornment: <FaCalendarAlt style={{ marginRight: 8 }} />
                         }}
@@ -82,6 +146,56 @@ const SearchForm = ({ onSearch, loading }) => {
                     }
                   />
                 </div>
+              </Box>
+
+              <Box sx={{ flex: 1, minWidth: '200px' }}>
+                <div className="custom-datepicker-wrapper">
+                  <ReactDatePicker
+                    selected={checkOut}
+                    onChange={(date) => setCheckOut(date)}
+                    dateFormat="yyyy-MM-dd"
+                    minDate={checkIn ? new Date(checkIn.getTime() + 86400000) : new Date()}
+                    customInput={
+                      <TextField
+                        fullWidth
+                        label="Check-out"
+                        InputProps={{
+                          startAdornment: <FaCalendarAlt style={{ marginRight: 8 }} />
+                        }}
+                      />
+                    }
+                  />
+                </div>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ flex: 1, minWidth: '140px' }}>
+                <TextField
+                  fullWidth
+                  label="Guests"
+                  type="number"
+                  value={guests}
+                  onChange={(e) => setGuests(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                  inputProps={{ min: 1, max: 20 }}
+                  InputProps={{
+                    startAdornment: <FaUsers style={{ marginRight: 8 }} />
+                  }}
+                />
+              </Box>
+              
+              <Box sx={{ flex: 1, minWidth: '140px' }}>
+                <TextField
+                  fullWidth
+                  label="Rooms"
+                  type="number"
+                  value={rooms}
+                  onChange={(e) => setRooms(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                  inputProps={{ min: 1, max: 10 }}
+                  InputProps={{
+                    startAdornment: <FaDoorOpen style={{ marginRight: 8 }} />
+                  }}
+                />
               </Box>
             </Box>
 

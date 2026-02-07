@@ -20,6 +20,17 @@ import {
   FaPlane,
 } from "react-icons/fa";
 
+const CURRENCY_SYMBOL = process.env.REACT_APP_CURRENCY_SYMBOL || "৳";
+
+const sourceColors = {
+  "Booking.com": { bg: "#003580", text: "#fff" },
+  Agoda: { bg: "#5542F6", text: "#fff" },
+  MakeMyTrip: { bg: "#E4002B", text: "#fff" },
+  Shohoz: { bg: "#FF6B00", text: "#fff" },
+  "Biman Airlines": { bg: "#006747", text: "#fff" },
+  TripAdvisor: { bg: "#34E0A1", text: "#000" },
+};
+
 const amenityIcons = {
   WiFi: FaWifi,
   Pool: FaSwimmingPool,
@@ -39,6 +50,20 @@ const ResultCard = ({ item, type }) => {
   const getTransportIcon = () => {
     return item.type === "bus" ? <FaBus /> : <FaPlane />;
   };
+
+  const sourceBadge = item.source ? (
+    <Chip
+      label={item.source}
+      size="small"
+      sx={{
+        ml: 1,
+        fontWeight: 600,
+        fontSize: "0.7rem",
+        bgcolor: sourceColors[item.source]?.bg || "#666",
+        color: sourceColors[item.source]?.text || "#fff",
+      }}
+    />
+  ) : null;
 
   return (
     <motion.div
@@ -71,7 +96,7 @@ const ResultCard = ({ item, type }) => {
 
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1 }}>
           <CardContent sx={{ flex: "1 0 auto", p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1, flexWrap: "wrap" }}>
               {type === "transportation" && (
                 <Box sx={{ mr: 1, color: "primary.main" }}>
                   {getTransportIcon()}
@@ -80,6 +105,7 @@ const ResultCard = ({ item, type }) => {
               <Typography variant="h6" fontWeight="bold">
                 {item.name || item.provider}
               </Typography>
+              {sourceBadge}
             </Box>
 
             <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -144,9 +170,19 @@ const ResultCard = ({ item, type }) => {
             )}
 
             {type === "tourist-place" && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {item.description}
-              </Typography>
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {item.description}
+                </Typography>
+                {item.category && (
+                  <Chip label={item.category} size="small" variant="outlined" sx={{ mb: 1 }} />
+                )}
+                {item.reviewCount && (
+                  <Typography variant="caption" color="text.secondary">
+                    {item.reviewCount}
+                  </Typography>
+                )}
+              </>
             )}
 
             <Box
@@ -157,31 +193,35 @@ const ResultCard = ({ item, type }) => {
                 mt: 2,
               }}
             >
-              <Typography variant="h6" color="primary" fontWeight="bold">
-                ৳
-                {typeof item.price === "number"
-                  ? item.price.toFixed(2)
-                  : item.price}
-              </Typography>
+              {item.price != null && (
+                <Typography variant="h6" color="primary" fontWeight="bold">
+                  {CURRENCY_SYMBOL}
+                  {typeof item.price === "number"
+                    ? item.price.toFixed(2)
+                    : item.price}
+                </Typography>
+              )}
 
-              <Button
-                variant="contained"
-                color="primary"
-                href={item.bookingLink}
-                target="_blank"
-                sx={{
-                  borderRadius: "8px",
-                  textTransform: "none",
-                  background:
-                    "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
-                  "&:hover": {
+              {(item.bookingLink || item.link) && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  href={item.bookingLink || item.link}
+                  target="_blank"
+                  sx={{
+                    borderRadius: "8px",
+                    textTransform: "none",
                     background:
-                      "linear-gradient(45deg, #1976D2 30%, #00B4D8 90%)",
-                  },
-                }}
-              >
-                Book Now
-              </Button>
+                      "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(45deg, #1976D2 30%, #00B4D8 90%)",
+                    },
+                  }}
+                >
+                  {type === "tourist-place" ? "View Details" : "Book Now"}
+                </Button>
+              )}
             </Box>
           </CardContent>
         </Box>
