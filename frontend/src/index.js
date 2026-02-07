@@ -1,30 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeContextProvider } from './context/ThemeContext';
+import { FavoritesProvider } from './context/FavoritesContext';
+import { SearchHistoryProvider } from './context/SearchHistoryContext';
 import App from './App';
 import './index.css';
-
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-    },
-  },
-});
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
+    <ThemeContextProvider>
+      <FavoritesProvider>
+        <SearchHistoryProvider>
+          <App />
+        </SearchHistoryProvider>
+      </FavoritesProvider>
+    </ThemeContextProvider>
   </React.StrictMode>
 );

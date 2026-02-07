@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -8,8 +8,11 @@ import {
   Chip,
   Rating,
   Button,
-} from "@mui/material";
-import { motion } from "framer-motion";
+  IconButton,
+  Tooltip,
+  useTheme,
+} from '@mui/material';
+import { motion } from 'framer-motion';
 import {
   FaWifi,
   FaSwimmingPool,
@@ -18,19 +21,26 @@ import {
   FaDumbbell,
   FaBus,
   FaPlane,
-} from "react-icons/fa";
+  FaHeart,
+  FaRegHeart,
+  FaExternalLinkAlt,
+  FaMapMarkerAlt,
+  FaClock,
+} from 'react-icons/fa';
+import { useFavorites } from '../context/FavoritesContext';
+import { useThemeMode } from '../context/ThemeContext';
 
-const CURRENCY_SYMBOL = process.env.REACT_APP_CURRENCY_SYMBOL || "৳";
+const CURRENCY_SYMBOL = process.env.REACT_APP_CURRENCY_SYMBOL || '৳';
 
 const sourceColors = {
-  "Booking.com": { bg: "#003580", text: "#fff" },
-  Agoda: { bg: "#5542F6", text: "#fff" },
-  MakeMyTrip: { bg: "#E4002B", text: "#fff" },
-  Shohoz: { bg: "#FF6B00", text: "#fff" },
-  "Bangladesh Railway": { bg: "#006A4E", text: "#fff" },
-  "Google Flights": { bg: "#4285F4", text: "#fff" },
-  Wikipedia: { bg: "#636466", text: "#fff" },
-  Wikivoyage: { bg: "#339966", text: "#fff" },
+  'Booking.com': { bg: '#003580', text: '#fff' },
+  Agoda: { bg: '#5542F6', text: '#fff' },
+  MakeMyTrip: { bg: '#E4002B', text: '#fff' },
+  Shohoz: { bg: '#FF6B00', text: '#fff' },
+  'Bangladesh Railway': { bg: '#006A4E', text: '#fff' },
+  'Google Flights': { bg: '#4285F4', text: '#fff' },
+  Wikipedia: { bg: '#636466', text: '#fff' },
+  Wikivoyage: { bg: '#339966', text: '#fff' },
 };
 
 const amenityIcons = {
@@ -44,13 +54,19 @@ const amenityIcons = {
 };
 
 const ResultCard = ({ item, type }) => {
+  const { addFavorite, removeFavorite, isFavorite } = useFavorites();
+  const { mode } = useThemeMode();
+  const theme = useTheme();
+  const liked = isFavorite(item);
+
   const getAmenityIcon = (amenity) => {
     const IconComponent = amenityIcons[amenity] || FaCoffee;
     return <IconComponent />;
   };
 
-  const getTransportIcon = () => {
-    return item.type === "bus" ? <FaBus /> : <FaPlane />;
+  const handleFavoriteToggle = () => {
+    if (liked) removeFavorite(item);
+    else addFavorite(item);
   };
 
   const sourceBadge = item.source ? (
@@ -60,168 +76,208 @@ const ResultCard = ({ item, type }) => {
       sx={{
         ml: 1,
         fontWeight: 600,
-        fontSize: "0.7rem",
-        bgcolor: sourceColors[item.source]?.bg || "#666",
-        color: sourceColors[item.source]?.text || "#fff",
+        fontSize: '0.7rem',
+        bgcolor: sourceColors[item.source]?.bg || '#666',
+        color: sourceColors[item.source]?.text || '#fff',
       }}
     />
   ) : null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
       <Card
         sx={{
-          display: "flex",
+          display: 'flex',
           mb: 2,
-          overflow: "hidden",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          "&:hover": {
-            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            transform: "translateY(-4px)",
-            transition: "all 0.3s ease",
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: mode === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+          boxShadow: mode === 'light'
+            ? '0 2px 12px rgba(0,0,0,0.06)'
+            : '0 2px 12px rgba(0,0,0,0.3)',
+          '&:hover': {
+            boxShadow: mode === 'light'
+              ? '0 8px 30px rgba(0,0,0,0.12)'
+              : '0 8px 30px rgba(0,0,0,0.5)',
+            transform: 'translateY(-3px)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           },
+          flexDirection: { xs: 'column', sm: 'row' },
+          position: 'relative',
         }}
       >
+        {/* Favorite Button */}
+        <Tooltip title={liked ? 'Remove from favorites' : 'Save to favorites'}>
+          <IconButton
+            onClick={handleFavoriteToggle}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 2,
+              bgcolor: mode === 'light' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              '&:hover': {
+                bgcolor: mode === 'light' ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,0.8)',
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.2s',
+            }}
+            size="small"
+          >
+            {liked ? (
+              <FaHeart color="#e91e63" size={16} />
+            ) : (
+              <FaRegHeart size={16} />
+            )}
+          </IconButton>
+        </Tooltip>
+
         <CardMedia
           component="img"
-          sx={{ width: 200, objectFit: "cover" }}
-          image={
-            item.imageUrl || `https://source.unsplash.com/featured/?${type}`
-          }
+          sx={{
+            width: { xs: '100%', sm: 220 },
+            height: { xs: 180, sm: 'auto' },
+            minHeight: { sm: 200 },
+            objectFit: 'cover',
+          }}
+          image={item.imageUrl || `https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400`}
           alt={item.name}
         />
 
-        <Box sx={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <CardContent sx={{ flex: "1 0 auto", p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1, flexWrap: "wrap" }}>
-              {type === "transportation" && (
-                <Box sx={{ mr: 1, color: "primary.main" }}>
-                  {getTransportIcon()}
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <CardContent sx={{ flex: '1 0 auto', p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
+              {type === 'transportation' && (
+                <Box sx={{ mr: 0.5, color: 'primary.main' }}>
+                  {item.type === 'bus' ? <FaBus /> : <FaPlane />}
                 </Box>
               )}
-              <Typography variant="h6" fontWeight="bold">
+              <Typography variant="h6" fontWeight={700} sx={{ mr: 'auto', letterSpacing: '-0.3px' }}>
                 {item.name || item.provider}
               </Typography>
               {sourceBadge}
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, gap: 1 }}>
               <Rating
                 value={parseFloat(item.rating) || 0}
                 readOnly
                 precision={0.5}
                 size="small"
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                ({item.rating || "Not rated"})
+              <Typography variant="body2" color="text.secondary">
+                ({item.rating || 'N/A'})
               </Typography>
             </Box>
 
-            {type === "hotel" && (
+            {type === 'hotel' && (
               <>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  {item.location}
-                </Typography>
-
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", my: 1 }}>
-                  {item.amenities?.slice(0, 5).map((amenity, index) => (
-                    <Chip
-                      key={index}
-                      icon={getAmenityIcon(amenity)}
-                      label={amenity}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                  <FaMapMarkerAlt size={12} color={theme.palette.text.secondary} />
+                  <Typography variant="body2" color="text.secondary">
+                    {item.location}
+                  </Typography>
                 </Box>
+
+                {item.amenities?.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1.5 }}>
+                    {item.amenities.slice(0, 5).map((amenity, index) => (
+                      <Chip
+                        key={index}
+                        icon={getAmenityIcon(amenity)}
+                        label={amenity}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.7rem' }}
+                      />
+                    ))}
+                  </Box>
+                )}
               </>
             )}
 
-            {type === "transportation" && (
-              <Box sx={{ my: 2 }}>
-                <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+            {type === 'transportation' && (
+              <Box sx={{ my: 1.5 }}>
+                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      From - To
-                    </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="caption" color="text.secondary">Route</Typography>
+                    <Typography variant="body2" fontWeight={600}>
                       {item.from} → {item.to}
                     </Typography>
                   </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Duration
-                    </Typography>
-                    <Typography variant="body1">{item.duration}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Time
-                    </Typography>
-                    <Typography variant="body1">
-                      {item.departureTime} - {item.arrivalTime}
-                    </Typography>
-                  </Box>
+                  {item.duration && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Duration</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <FaClock size={11} />
+                        <Typography variant="body2" fontWeight={600}>{item.duration}</Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  {item.departureTime && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Departure</Typography>
+                      <Typography variant="body2" fontWeight={600}>{item.departureTime}</Typography>
+                    </Box>
+                  )}
                 </Box>
               </Box>
             )}
 
-            {type === "tourist-place" && (
+            {type === 'tourist-place' && (
               <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {item.description}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, lineHeight: 1.6 }}>
+                  {item.description?.slice(0, 150)}
+                  {item.description?.length > 150 ? '...' : ''}
                 </Typography>
                 {item.category && (
                   <Chip label={item.category} size="small" variant="outlined" sx={{ mb: 1 }} />
-                )}
-                {item.reviewCount && (
-                  <Typography variant="caption" color="text.secondary">
-                    {item.reviewCount}
-                  </Typography>
                 )}
               </>
             )}
 
             <Box
               sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mt: 2,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 'auto',
+                pt: 2,
+                borderTop: '1px solid',
+                borderColor: 'divider',
               }}
             >
               {item.price != null && (
-                <Typography variant="h6" color="primary" fontWeight="bold">
-                  {CURRENCY_SYMBOL}
-                  {typeof item.price === "number"
-                    ? item.price.toFixed(2)
-                    : item.price}
-                </Typography>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {type === 'hotel' ? 'per night' : 'price'}
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color="primary">
+                    {CURRENCY_SYMBOL}
+                    {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
+                  </Typography>
+                </Box>
               )}
 
               {(item.bookingLink || item.link) && (
                 <Button
                   variant="contained"
-                  color="primary"
                   href={item.bookingLink || item.link}
                   target="_blank"
+                  endIcon={<FaExternalLinkAlt size={12} />}
                   sx={{
-                    borderRadius: "8px",
-                    textTransform: "none",
-                    background:
-                      "linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)",
-                    "&:hover": {
-                      background:
-                        "linear-gradient(45deg, #1976D2 30%, #00B4D8 90%)",
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a6fd6 0%, #6a4296 100%)',
                     },
                   }}
                 >
-                  {type === "tourist-place" ? "View Details" : "Book Now"}
+                  {type === 'tourist-place' ? 'View Details' : 'Book Now'}
                 </Button>
               )}
             </Box>
