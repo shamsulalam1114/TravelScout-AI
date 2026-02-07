@@ -21,11 +21,14 @@ import {
   FaDumbbell,
   FaBus,
   FaPlane,
+  FaTrain,
+  FaRoute,
   FaHeart,
   FaRegHeart,
   FaExternalLinkAlt,
   FaMapMarkerAlt,
   FaClock,
+  FaExchangeAlt,
 } from 'react-icons/fa';
 import { useFavorites } from '../context/FavoritesContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -39,6 +42,10 @@ const sourceColors = {
   Shohoz: { bg: '#FF6B00', text: '#fff' },
   'Bangladesh Railway': { bg: '#006A4E', text: '#fff' },
   'Google Flights': { bg: '#4285F4', text: '#fff' },
+  'TravelScout Flights': { bg: '#667eea', text: '#fff' },
+  TravelScout: { bg: '#764ba2', text: '#fff' },
+  Skyscanner: { bg: '#0770e3', text: '#fff' },
+  Rome2Rio: { bg: '#2BAD54', text: '#fff' },
   Wikipedia: { bg: '#636466', text: '#fff' },
   Wikivoyage: { bg: '#339966', text: '#fff' },
 };
@@ -51,6 +58,8 @@ const amenityIcons = {
   Gym: FaDumbbell,
   bus: FaBus,
   flight: FaPlane,
+  train: FaTrain,
+  multimodal: FaRoute,
 };
 
 const ResultCard = ({ item, type }) => {
@@ -154,7 +163,7 @@ const ResultCard = ({ item, type }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
               {type === 'transportation' && (
                 <Box sx={{ mr: 0.5, color: 'primary.main' }}>
-                  {item.type === 'bus' ? <FaBus /> : <FaPlane />}
+                  {item.type === 'bus' ? <FaBus /> : item.type === 'train' ? <FaTrain /> : item.type === 'multimodal' ? <FaRoute /> : <FaPlane />}
                 </Box>
               )}
               <Typography variant="h6" fontWeight={700} sx={{ mr: 'auto', letterSpacing: '-0.3px' }}>
@@ -203,14 +212,28 @@ const ResultCard = ({ item, type }) => {
 
             {type === 'transportation' && (
               <Box sx={{ my: 1.5 }}>
-                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Route</Typography>
-                    <Typography variant="body2" fontWeight={600}>
-                      {item.from} → {item.to}
+                {/* Description / stop details */}
+                {(item.stopDetails || item.description) && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                    <FaExchangeAlt size={11} color={theme.palette.text.secondary} />
+                    <Typography variant="body2" color="text.secondary">
+                      {item.stopDetails || item.description}
                     </Typography>
                   </Box>
-                  {item.duration && (
+                )}
+
+                {/* Coach type / train class */}
+                {(item.coachType || item.trainClass) && (
+                  <Chip
+                    label={item.coachType || item.trainClass}
+                    size="small"
+                    variant="outlined"
+                    sx={{ mb: 1, fontSize: '0.7rem' }}
+                  />
+                )}
+
+                <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  {item.duration && item.duration !== 'Various' && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Duration</Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -219,13 +242,47 @@ const ResultCard = ({ item, type }) => {
                       </Box>
                     </Box>
                   )}
-                  {item.departureTime && (
+                  {item.departureTime && item.departureTime !== 'Various' && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Departure</Typography>
                       <Typography variant="body2" fontWeight={600}>{item.departureTime}</Typography>
                     </Box>
                   )}
+                  {item.arrivalTime && item.arrivalTime !== 'See website' && item.arrivalTime !== 'See booking site' && item.arrivalTime !== 'Various' && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Arrival</Typography>
+                      <Typography variant="body2" fontWeight={600}>{item.arrivalTime}</Typography>
+                    </Box>
+                  )}
                 </Box>
+
+                {/* Additional booking links */}
+                {(item.googleFlightsLink || item.kayakLink) && (
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                    {item.googleFlightsLink && (
+                      <Chip
+                        label="Google Flights"
+                        size="small"
+                        component="a"
+                        href={item.googleFlightsLink}
+                        target="_blank"
+                        clickable
+                        sx={{ fontSize: '0.65rem', bgcolor: '#4285F4', color: '#fff', '&:hover': { bgcolor: '#3367d6' } }}
+                      />
+                    )}
+                    {item.kayakLink && (
+                      <Chip
+                        label="Kayak"
+                        size="small"
+                        component="a"
+                        href={item.kayakLink}
+                        target="_blank"
+                        clickable
+                        sx={{ fontSize: '0.65rem', bgcolor: '#FF690F', color: '#fff', '&:hover': { bgcolor: '#e55e0d' } }}
+                      />
+                    )}
+                  </Box>
+                )}
               </Box>
             )}
 
@@ -252,15 +309,20 @@ const ResultCard = ({ item, type }) => {
                 borderColor: 'divider',
               }}
             >
-              {item.price != null && (
+              {item.price != null && item.price > 0 && (
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    {type === 'hotel' ? 'per night' : 'price'}
+                    {type === 'hotel' ? 'per night' : item.type === 'flight' ? 'est. fare' : 'fare'}
                   </Typography>
                   <Typography variant="h5" fontWeight={800} color="primary">
                     {CURRENCY_SYMBOL}
                     {typeof item.price === 'number' ? item.price.toLocaleString() : item.price}
                   </Typography>
+                  {item.priceUSD > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      ~${item.priceUSD} USD
+                    </Typography>
+                  )}
                 </Box>
               )}
 
