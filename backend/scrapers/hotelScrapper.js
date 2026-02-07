@@ -8,7 +8,7 @@ puppeteer.use(StealthPlugin());
 
 async function setupBrowser() {
   return await puppeteer.launch({
-    headless: true,
+    headless: "new",
     args: [
       "--disable-web-security",
       "--disable-features=IsolateOrigins,site-per-process",
@@ -111,8 +111,8 @@ async function scrapeHotels(location, checkInDate, checkOutDate) {
     // Scrape all sources concurrently using Promise.allSettled
     const results = await Promise.allSettled([
       scrapeBookingDotCom(location, checkInDate, checkOutDate),
-      scrapeAgodaHotels(location, checkInDate),
-      scrapeMakeMyTripHotels(location, checkInDate),
+      scrapeAgodaHotels(location, checkInDate, checkOutDate),
+      scrapeMakeMyTripHotels(location, checkInDate, checkOutDate),
     ]);
 
     // Extract results and log failures

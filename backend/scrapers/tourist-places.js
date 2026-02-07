@@ -1,207 +1,185 @@
-const puppeteer = require("puppeteer-extra");
-const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-const randomUseragent = require("random-useragent");
-const { scrapeTripAdvisorPlaces } = require("./tripadvisor");
+const axios = require("axios");
 
-puppeteer.use(StealthPlugin());
+const WIKI_API = "https://en.wikipedia.org/w/api.php";
+const WIKI_HEADERS = {
+  "User-Agent": "TravelComparisonBot/1.0 (educational project)",
+  Accept: "application/json",
+};
 
-const MAX_RETRIES = 2;
-const RETRY_DELAY = 3000;
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function setupBrowser() {
-  return await puppeteer.launch({
-    headless: true,
-    args: [
-      "--disable-web-security",
-      "--disable-features=IsolateOrigins,site-per-process",
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-blink-features=AutomationControlled",
-    ],
-    defaultViewport: { width: 1920, height: 1080 },
+/**
+ * Search Wikipedia for articles related to a query.
+ */
+async function searchWikipedia(query, limit = 10) {
+  const { data } = await axios.get(WIKI_API, {
+    params: {
+      action: "query",
+      list: "search",
+      srsearch: query,
+      format: "json",
+      srlimit: limit,
+      origin: "*",
+    },
+    headers: WIKI_HEADERS,
+    timeout: 10000,
   });
+  return data.query?.search || [];
 }
 
-async function scrapeTouristPlacesPuppeteer(location) {
-  const places = [];
-  let browser;
+/**
+ * Get page details (extract + thumbnail + URL) for a list of page titles.
+ */
+async function getPageDetails(titles) {
+  if (titles.length === 0) return [];
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      browser = await setupBrowser();
-      const page = await browser.newPage();
-      await page.setUserAgent(randomUseragent.getRandom());
+  const { data } = await axios.get(WIKI_API, {
+    params: {
+      action: "query",
+      titles: titles.join("|"),
+      prop: "extracts|pageimages|info",
+      exintro: true,
+      explaintext: true,
+      pithumbsize: 500,
+      inprop: "url",
+      format: "json",
+      origin: "*",
+    },
+    headers: WIKI_HEADERS,
+    timeout: 10000,
+  });
 
-      const url = `https://www.tripadvisor.com/Search?q=${encodeURIComponent(
-        location
-      )}+attractions`;
+  return Object.values(data.query?.pages || {}).filter(
+    (p) => p.pageid && p.pageid > 0
+  );
+}
 
-      console.log(
-        `\x1b[34m[TouristPlaces] Attempt ${attempt}/${MAX_RETRIES} — Navigating to:\x1b[0m ${url}`
-      );
-
-      await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
-
-      // Try multiple possible selectors (TripAdvisor changes frequently)
-      const selectors = [
-        '[data-testid="search-result"]',
-        ".location-meta-block",
-        ".search-results-list .result",
-        ".prw_rup.prw_search_search_result_poi",
-      ];
-
-      let selectorFound = null;
-      for (const selector of selectors) {
-        try {
-          await page.waitForSelector(selector, { timeout: 8000 });
-          selectorFound = selector;
-          console.log(
-            `\x1b[32m[TouristPlaces] Found results with selector: ${selector}\x1b[0m`
-          );
-          break;
-        } catch {
-          continue;
-        }
+/**
+ * Try fetching tourist-attractions from Wikivoyage as well.
+ */
+async function searchWikivoyage(location) {
+  try {
+    const { data } = await axios.get(
+      "https://en.wikivoyage.org/w/api.php",
+      {
+        params: {
+          action: "query",
+          list: "search",
+          srsearch: location,
+          format: "json",
+          srlimit: 5,
+          origin: "*",
+        },
+        headers: WIKI_HEADERS,
+        timeout: 10000,
       }
+    );
 
-      if (!selectorFound) {
-        console.warn(
-          "\x1b[33m[TouristPlaces] No known selectors matched. Page structure may have changed.\x1b[0m"
-        );
-        break;
+    const results = data.query?.search || [];
+    if (results.length === 0) return [];
+
+    const titles = results.map((r) => r.title);
+    const { data: detailData } = await axios.get(
+      "https://en.wikivoyage.org/w/api.php",
+      {
+        params: {
+          action: "query",
+          titles: titles.join("|"),
+          prop: "extracts|pageimages|info",
+          exintro: true,
+          explaintext: true,
+          pithumbsize: 500,
+          inprop: "url",
+          format: "json",
+          origin: "*",
+        },
+        headers: WIKI_HEADERS,
+        timeout: 10000,
       }
+    );
 
-      const results = await page.evaluate((sel) => {
-        const items = document.querySelectorAll(sel);
-        return Array.from(items).map((item) => {
-          // Try multiple possible child selectors
-          const name =
-            item.querySelector('[data-testid="result-title"]')?.innerText?.trim() ||
-            item.querySelector(".result-title")?.innerText?.trim() ||
-            item.querySelector("h3")?.innerText?.trim() ||
-            item.querySelector("a")?.innerText?.trim() ||
-            "Unknown";
-
-          const description =
-            item.querySelector(".location-description")?.innerText?.trim() ||
-            item.querySelector(".search-result-description")?.innerText?.trim() ||
-            item.querySelector("p")?.innerText?.trim() ||
-            "No description available";
-
-          const ratingEl =
-            item.querySelector(".ui_bubble_rating") ||
-            item.querySelector('[data-testid="rating"]');
-          const rating = ratingEl
-            ? ratingEl.getAttribute("alt")?.split(" ")[0] ||
-              ratingEl.getAttribute("aria-label")?.split(" ")[0] ||
-              "Not rated"
-            : "Not rated";
-
-          const reviewCount =
-            item.querySelector(".review-count")?.innerText?.trim() ||
-            item.querySelector('[data-testid="review-count"]')?.innerText?.trim() ||
-            "0 reviews";
-
-          const category =
-            item.querySelector(".category-name")?.innerText?.trim() ||
-            item.querySelector(".search-result-category")?.innerText?.trim() ||
-            "Tourist Attraction";
-
-          const imageUrl =
-            item.querySelector("img")?.src ||
-            item.querySelector("img")?.getAttribute("data-src") ||
-            null;
-
-          const link =
-            item.querySelector("a")?.href || null;
-
-          return {
-            name,
-            description,
-            rating,
-            reviewCount,
-            category,
-            imageUrl,
-            link,
-            source: "TripAdvisor",
-          };
-        });
-      }, selectorFound);
-
-      if (results.length > 0) {
-        places.push(...results.filter((place) => place.name !== "Unknown"));
-      }
-
-      console.log(
-        `\x1b[32m[TouristPlaces] Found ${places.length} places via Puppeteer\x1b[0m`
-      );
-      break; // Success, exit retry loop
-    } catch (error) {
-      console.error(
-        `\x1b[31m[TouristPlaces] Attempt ${attempt}/${MAX_RETRIES} failed:\x1b[0m`,
-        error.message
-      );
-      if (attempt < MAX_RETRIES) {
-        console.log(
-          `\x1b[33m[TouristPlaces] Retrying in ${RETRY_DELAY / 1000}s...\x1b[0m`
-        );
-        await delay(RETRY_DELAY);
-      }
-    } finally {
-      if (browser) await browser.close();
-    }
+    return Object.values(detailData.query?.pages || {})
+      .filter((p) => p.pageid && p.pageid > 0)
+      .map((page) => ({
+        name: page.title,
+        description: page.extract
+          ? page.extract.substring(0, 300) + (page.extract.length > 300 ? "..." : "")
+          : "Travel guide available on Wikivoyage",
+        rating: "N/A",
+        reviewCount: "Wikivoyage",
+        category: "Travel Guide",
+        imageUrl: page.thumbnail?.source || null,
+        link:
+          page.fullurl ||
+          `https://en.wikivoyage.org/wiki/${encodeURIComponent(page.title)}`,
+        source: "Wikivoyage",
+      }));
+  } catch (err) {
+    console.error("[Wikivoyage] Error:", err.message);
+    return [];
   }
-
-  return places;
 }
 
+/**
+ * Main function — searches Wikipedia + Wikivoyage for tourist info
+ * about a given location.
+ */
 async function scrapeTouristPlaces(location) {
   console.log(
-    `\x1b[34mStarting tourist places scraping for ${location}\x1b[0m`
+    `\x1b[34mStarting tourist places search for "${location}" via Wikipedia API\x1b[0m`
   );
 
   try {
-    // Run both Puppeteer and Cheerio scrapers concurrently
-    const results = await Promise.allSettled([
-      scrapeTouristPlacesPuppeteer(location),
-      scrapeTripAdvisorPlaces(location),
-    ]);
+    // ── 1. Search Wikipedia with multiple queries ───────────
+    const queries = [
+      `${location} tourist attractions Bangladesh`,
+      `${location} landmarks places to visit`,
+      `things to do in ${location}`,
+    ];
 
-    const sourceNames = ["TripAdvisor (Puppeteer)", "TripAdvisor (Cheerio)"];
-    const allResults = results.map((result, index) => {
-      if (result.status === "fulfilled") {
-        console.log(
-          `\x1b[32m${sourceNames[index]}: Found ${result.value.length} places\x1b[0m`
-        );
-        return result.value;
-      } else {
-        console.error(
-          `\x1b[31m${sourceNames[index]} failed:\x1b[0m`,
-          result.reason?.message || result.reason
-        );
-        return [];
-      }
-    });
-
-    // Merge and deduplicate by name
-    const mergedPlaces = allResults.flat();
-    const uniquePlaces = Array.from(
-      new Map(mergedPlaces.map((place) => [place.name, place])).values()
+    const searchBatches = await Promise.all(
+      queries.map((q) => searchWikipedia(q, 5))
     );
 
-    // Sort by rating (highest first)
-    const sortedPlaces = uniquePlaces.sort((a, b) => {
-      const ratingA = parseFloat(a.rating) || 0;
-      const ratingB = parseFloat(b.rating) || 0;
-      return ratingB - ratingA;
-    });
+    // Deduplicate by pageid
+    const allHits = searchBatches.flat();
+    const uniqueHits = [
+      ...new Map(allHits.map((r) => [r.pageid, r])).values(),
+    ];
+
+    // ── 2. Get full page details from Wikipedia ─────────────
+    let wikiPlaces = [];
+    if (uniqueHits.length > 0) {
+      const titles = uniqueHits.map((r) => r.title);
+      const pages = await getPageDetails(titles);
+      wikiPlaces = pages.map((page) => ({
+        name: page.title,
+        description: page.extract
+          ? page.extract.substring(0, 300) +
+            (page.extract.length > 300 ? "..." : "")
+          : "No description available",
+        rating: "N/A",
+        reviewCount: "Wikipedia",
+        category: "Tourist Attraction",
+        imageUrl: page.thumbnail?.source || null,
+        link:
+          page.fullurl ||
+          `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+        source: "Wikipedia",
+      }));
+    }
+
+    // ── 3. Also try Wikivoyage (travel-focused wiki) ────────
+    const voyagePlaces = await searchWikivoyage(location);
+
+    // ── 4. Merge & deduplicate ──────────────────────────────
+    const merged = [...wikiPlaces, ...voyagePlaces];
+    const unique = [
+      ...new Map(merged.map((p) => [p.name, p])).values(),
+    ];
 
     console.log(
-      `\x1b[32mFound ${sortedPlaces.length} unique tourist places\x1b[0m`
+      `\x1b[32mFound ${unique.length} tourist places (${wikiPlaces.length} Wikipedia + ${voyagePlaces.length} Wikivoyage)\x1b[0m`
     );
-    return sortedPlaces;
+    return unique;
   } catch (error) {
     console.error(
       "\x1b[31mTourist places scraping error:\x1b[0m",
@@ -212,5 +190,5 @@ async function scrapeTouristPlaces(location) {
 }
 
 module.exports = {
-  scrapeTouristPlaces
+  scrapeTouristPlaces,
 };

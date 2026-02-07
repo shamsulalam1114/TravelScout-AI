@@ -27,8 +27,10 @@ const sourceColors = {
   Agoda: { bg: "#5542F6", text: "#fff" },
   MakeMyTrip: { bg: "#E4002B", text: "#fff" },
   Shohoz: { bg: "#FF6B00", text: "#fff" },
-  "Biman Airlines": { bg: "#006747", text: "#fff" },
-  TripAdvisor: { bg: "#34E0A1", text: "#000" },
+  "Bangladesh Railway": { bg: "#006A4E", text: "#fff" },
+  "Google Flights": { bg: "#4285F4", text: "#fff" },
+  Wikipedia: { bg: "#636466", text: "#fff" },
+  Wikivoyage: { bg: "#339966", text: "#fff" },
 };
 
 const amenityIcons = {

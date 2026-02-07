@@ -226,8 +226,8 @@ app.get("/api/health", (req, res) => {
     cacheSize: cache.data.size,
     scrapers: {
       hotels: { sources: ["Booking.com", "Agoda", "MakeMyTrip"], status: "active" },
-      transportation: { sources: ["Shohoz", "Biman Airlines"], status: "active" },
-      touristPlaces: { sources: ["TripAdvisor"], status: "active" },
+      transportation: { sources: ["Shohoz", "Bangladesh Railway", "Google Flights"], status: "active" },
+      touristPlaces: { sources: ["Wikipedia", "Wikivoyage"], status: "active" },
     },
     config: {
       port: PORT,
