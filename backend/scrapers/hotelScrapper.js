@@ -1,6 +1,8 @@
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const randomUseragent = require("random-useragent");
+const { scrapeAgodaHotels } = require("./agoda");
+const { scrapeMakeMyTripHotels } = require("./makemytrip");
 
 puppeteer.use(StealthPlugin());
 
@@ -85,11 +87,12 @@ async function scrapeBookingDotCom(location, checkInDate, checkOutDate) {
       JSON.stringify(results, null, 2)
     ); // Cyan log
 
-    hotels.push(...results.filter((hotel) => hotel.name));
-    // console.log(
-    //   "\x1b[32mFiltered hotels with valid names and prices:\x1b[0m",
-    //   JSON.stringify(hotels, null, 2)
-    // ); // Green log
+    hotels.push(
+      ...results.filter((hotel) => hotel.name).map((hotel) => ({
+        ...hotel,
+        source: "Booking.com",
+      }))
+    );
   } catch (error) {
     console.error("\x1b[31mError scraping Booking.com:\x1b[0m", error.message); // Red log
   } finally {
@@ -105,28 +108,46 @@ async function scrapeHotels(location, checkInDate, checkOutDate) {
   );
 
   try {
-    const bookingResults = await scrapeBookingDotCom(
-      location,
-      checkInDate,
-      checkOutDate
-    ).catch((err) => {
-      console.error("\x1b[31mBooking.com scraping error:\x1b[0m", err.message); // Red log
-      return [];
+    // Scrape all sources concurrently using Promise.allSettled
+    const results = await Promise.allSettled([
+      scrapeBookingDotCom(location, checkInDate, checkOutDate),
+      scrapeAgodaHotels(location, checkInDate),
+      scrapeMakeMyTripHotels(location, checkInDate),
+    ]);
+
+    // Extract results and log failures
+    const sourceNames = ["Booking.com", "Agoda", "MakeMyTrip"];
+    const allResults = results.map((result, index) => {
+      if (result.status === "fulfilled") {
+        console.log(
+          `\x1b[32m${sourceNames[index]}: Found ${result.value.length} hotels\x1b[0m`
+        );
+        return result.value;
+      } else {
+        console.error(
+          `\x1b[31m${sourceNames[index]} scraping failed:\x1b[0m`,
+          result.reason?.message || result.reason
+        );
+        return [];
+      }
     });
 
-    // Remove duplicates based on hotel name
+    // Merge all hotel results
+    const mergedHotels = allResults.flat();
+
+    // Remove duplicates based on hotel name (keep first occurrence)
     const allHotels = Array.from(
-      new Map(bookingResults.map((hotel) => [hotel.name, hotel])).values()
+      new Map(mergedHotels.map((hotel) => [hotel.name, hotel])).values()
     );
 
     // Sort by price
     const sortedHotels = allHotels.sort((a, b) => a.price - b.price);
 
-    console.log(`\x1b[32mFound ${sortedHotels.length} unique hotels\x1b[0m`); // Green log
+    console.log(`\x1b[32mFound ${sortedHotels.length} unique hotels from ${sourceNames.length} sources\x1b[0m`);
     console.log(
       "\x1b[36mFinal sorted hotel results:\x1b[0m",
       JSON.stringify(sortedHotels, null, 2)
-    ); // Cyan log
+    );
     return sortedHotels;
   } catch (error) {
     console.error("\x1b[31mError during hotel scraping:\x1b[0m", error.message); // Red log

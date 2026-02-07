@@ -37,6 +37,7 @@ async function scrapeMakeMyTripHotels(location, checkInDate) {
           .get(),
         imageUrl: $(element).find(".hotelImage img").attr("src"),
         description: $(element).find(".hotelDesc").text().trim(),
+        source: "MakeMyTrip",
       };
 
       if (hotel.name && hotel.price > 0) {

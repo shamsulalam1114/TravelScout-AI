@@ -37,6 +37,7 @@ async function scrapeAgodaHotels(location, checkInDate) {
           .get(),
         imageUrl: $(element).find(".hotel-image img").attr("src"),
         description: $(element).find(".description").text().trim(),
+        source: "Agoda",
       };
 
       if (hotel.name && hotel.price > 0) {
